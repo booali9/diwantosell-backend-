@@ -14,7 +14,7 @@ import stakingRoutes from './routes/stakingRoutes';
 
 const app = express();
 
-app.use(helmet());
+// 1. CORS - MUST BE FIRST
 app.use(cors({
     origin: (origin, callback) => {
         // Allow all origins
@@ -22,7 +22,14 @@ app.use(cors({
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+
+// 2. Helmet - configured to be less restrictive for CORS
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    crossOriginEmbedderPolicy: false,
 }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '5mb' }));

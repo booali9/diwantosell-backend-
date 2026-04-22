@@ -15,7 +15,7 @@ const walletRoutes_1 = __importDefault(require("./routes/walletRoutes"));
 const tradeRoutes_1 = __importDefault(require("./routes/tradeRoutes"));
 const stakingRoutes_1 = __importDefault(require("./routes/stakingRoutes"));
 const app = (0, express_1.default)();
-app.use((0, helmet_1.default)());
+// 1. CORS - MUST BE FIRST
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         // Allow all origins
@@ -23,7 +23,13 @@ app.use((0, cors_1.default)({
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+// 2. Helmet - configured to be less restrictive for CORS
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: false,
+    crossOriginEmbedderPolicy: false,
 }));
 app.use((0, morgan_1.default)('dev'));
 app.use(express_1.default.json({ limit: '5mb' }));
