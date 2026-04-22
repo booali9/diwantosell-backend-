@@ -16,8 +16,13 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({
-    origin: '*',
-    credentials: false
+    origin: (origin, callback) => {
+        // Allow all origins
+        callback(null, true);
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    credentials: true
 }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '5mb' }));

@@ -17,8 +17,13 @@ const stakingRoutes_1 = __importDefault(require("./routes/stakingRoutes"));
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: '*',
-    credentials: false
+    origin: (origin, callback) => {
+        // Allow all origins
+        callback(null, true);
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    credentials: true
 }));
 app.use((0, morgan_1.default)('dev'));
 app.use(express_1.default.json({ limit: '5mb' }));
