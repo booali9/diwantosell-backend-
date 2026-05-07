@@ -11,7 +11,7 @@ const connectDB = async () => {
     }
     
     try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/diwanfinance', {
+        const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/Bicoin', {
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
         });
@@ -28,3 +28,4 @@ const connectDB = async () => {
 };
 
 export default connectDB;
+

@@ -9,7 +9,7 @@ const seedAdmin = async () => {
     try {
         await connectDB();
 
-        const adminEmail = 'admin@diwanfinance.com';
+        const adminEmail = 'admin@Bicoin.com';
         const adminPassword = 'admin@123';
 
         const existingAdmin = await Admin.findOne({ email: adminEmail });
@@ -37,3 +37,4 @@ const seedAdmin = async () => {
 };
 
 seedAdmin();
+

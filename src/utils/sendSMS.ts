@@ -19,6 +19,7 @@ export const sendSMS = async (phone: string, message: string): Promise<boolean> 
 };
 
 export const sendOTPBySMS = async (phone: string, otp: string): Promise<boolean> => {
-    const message = `Your Diwan Finance verification code is: ${otp}. Valid for 10 minutes.`;
+    const message = `Your Bicoin verification code is: ${otp}. Valid for 10 minutes.`;
     return await sendSMS(phone, message);
 };
+

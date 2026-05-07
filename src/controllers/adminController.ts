@@ -20,13 +20,13 @@ export const authAdmin = async (req: Request, res: Response) => {
         console.log('[DEBUG] Login attempt for:', email);
 
         // Temporary bypass for testing - remove this in production
-        if (email === 'admin@diwanfinance.com' && password === 'admin@123') {
+        if (email === 'admin@Bicoin.com' && password === 'admin@123') {
             console.log('[DEBUG] Using temporary bypass login');
             const mockToken = generateToken('temp_admin_id');
             return res.json({
                 _id: 'temp_admin_id',
                 name: 'Super Admin',
-                email: 'admin@diwanfinance.com',
+                email: 'admin@Bicoin.com',
                 role: 'superadmin',
                 token: mockToken,
             });
@@ -63,13 +63,13 @@ export const authAdmin = async (req: Request, res: Response) => {
         // If it's a MongoDB timeout error and we have the test credentials, use bypass
         if (error instanceof Error && error.message.includes('buffering timed out')) {
             const { email, password } = req.body;
-            if (email === 'admin@diwanfinance.com' && password === 'admin@123') {
+            if (email === 'admin@Bicoin.com' && password === 'admin@123') {
                 console.log('[DEBUG] MongoDB timeout - using bypass login');
                 const mockToken = generateToken('temp_admin_id');
                 return res.json({
                     _id: 'temp_admin_id',
                     name: 'Super Admin',
-                    email: 'admin@diwanfinance.com',
+                    email: 'admin@Bicoin.com',
                     role: 'superadmin',
                     token: mockToken,
                 });
@@ -93,7 +93,7 @@ export const getAdminProfile = async (req: any, res: Response) => {
             return res.json({
                 _id: 'temp_admin_id',
                 name: 'Super Admin',
-                email: 'admin@diwanfinance.com',
+                email: 'admin@Bicoin.com',
                 role: 'superadmin',
             });
         }
@@ -338,3 +338,4 @@ export const getAuditLogs = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Server error fetching audit logs' });
     }
 };
+

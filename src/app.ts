@@ -36,7 +36,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to DiwanFinance API' });
+    res.json({ message: 'Welcome to Bicoin API' });
 });
 
 // Health check endpoint
@@ -87,3 +87,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 export default app;
+

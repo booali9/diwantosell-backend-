@@ -18,6 +18,9 @@ import {
     changePassword,
     changeEmail,
     deleteAccount,
+    enable2FA,
+    disable2FA,
+    setFundPassword,
 } from '../controllers/userController';
 import { protectUser } from '../middleware/userAuthMiddleware';
 
@@ -46,6 +49,9 @@ router.route('/profile')
 router.put('/change-password', protectUser, changePassword);
 router.put('/change-email', protectUser, changeEmail);
 router.delete('/account', protectUser, deleteAccount);
+router.post('/2fa/enable', protectUser, enable2FA);
+router.post('/2fa/disable', protectUser, disable2FA);
+router.post('/fund-password', protectUser, setFundPassword);
 
 // KYC
 router.post('/kyc', protectUser, submitKYC);

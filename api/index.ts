@@ -59,7 +59,7 @@ app.use(async (req, res, next) => {
 
 // Routes
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to DiwanFinance API' });
+    res.json({ message: 'Welcome to Bicoin API' });
 });
 
 app.get('/api/health', async (req, res) => {
@@ -97,3 +97,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 export default app;
+

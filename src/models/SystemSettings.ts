@@ -39,6 +39,20 @@ const systemSettingsSchema = new mongoose.Schema(
             type: Number,
             default: 10,
         },
+        withdrawalFees: {
+            type: Map,
+            of: Number,
+            default: {
+                'TRC20': 1,
+                'ERC20': 10,
+                'BEP20': 1,
+                'BTC': 0.0005
+            }
+        },
+        referralCommissionRate: {
+            type: Number,
+            default: 20, // 20%
+        },
 
         // Transaction Limits
         dailyLimit: {

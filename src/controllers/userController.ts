@@ -202,6 +202,9 @@ export const authUser = async (req: Request, res: Response) => {
                 isEmailVerified: user.isEmailVerified,
                 isProfileComplete: user.isProfileComplete,
                 isFrozen: user.isFrozen,
+                uid: (user as any).uid,
+                invitationCode: (user as any).invitationCode,
+                isGoogleAuthenticatorEnabled: (user as any).isGoogleAuthenticatorEnabled,
                 token: generateToken(user._id.toString()),
             });
         } else {
@@ -336,7 +339,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 // @access  Private
 export const getUserProfile = async (req: any, res: Response) => {
     try {
-        const user = await User.findById(req.user._id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        const user = await User.findById(req.user._id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires -googleAuthenticatorSecret -fundPassword');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -631,6 +634,10 @@ export const changePassword = async (req: Request, res: Response) => {
         }
 
         user.password = newPassword; // Will be hashed by pre-save hook
+        
+        // 24h Withdrawal Restriction
+        (user as any).lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        
         await user.save();
 
         res.json({ message: 'Password changed successfully' });
@@ -668,6 +675,10 @@ export const changeEmail = async (req: Request, res: Response) => {
         }
 
         user.email = newEmail;
+        
+        // 24h Withdrawal Restriction
+        (user as any).lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
         await user.save();
 
         res.json({
@@ -709,5 +720,63 @@ export const deleteAccount = async (req: Request, res: Response) => {
         res.json({ message: 'Account deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+};
+
+// @desc    Enable Google 2FA
+// @route   POST /api/users/2fa/enable
+// @access  Private
+export const enable2FA = async (req: any, res: Response) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        (user as any).isGoogleAuthenticatorEnabled = true;
+        await user.save();
+        res.json({ message: 'Google Authenticator enabled successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Disable Google 2FA
+// @route   POST /api/users/2fa/disable
+// @access  Private
+export const disable2FA = async (req: any, res: Response) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        (user as any).isGoogleAuthenticatorEnabled = false;
+        await user.save();
+        res.json({ message: 'Google Authenticator disabled successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Set/Change Fund Password
+// @route   POST /api/users/fund-password
+// @access  Private
+export const setFundPassword = async (req: any, res: Response) => {
+    try {
+        const { currentPassword, newFundPassword } = req.body;
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Verify login password first for security
+        const isMatch = await user.matchPassword(currentPassword);
+        if (!isMatch) return res.status(401).json({ message: 'Incorrect login password' });
+
+        const salt = await bcrypt.genSalt(10);
+        (user as any).fundPassword = await bcrypt.hash(newFundPassword, salt);
+        
+        // 24h Withdrawal Restriction
+        (user as any).lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await user.save();
+        res.json({ message: 'Fund password set successfully. 24h withdrawal restriction applied.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
     }
 };

@@ -23,7 +23,7 @@ export const protectAdmin = async (req: any, res: Response, next: NextFunction) 
                 req.admin = {
                     _id: 'temp_admin_id',
                     name: 'Super Admin',
-                    email: 'admin@diwanfinance.com',
+                    email: 'admin@Bicoin.com',
                     role: 'superadmin'
                 };
                 return next();
@@ -52,3 +52,4 @@ export const protectAdmin = async (req: any, res: Response, next: NextFunction) 
         throw new Error('Not authorized, no token');
     }
 };
+
