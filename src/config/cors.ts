@@ -11,19 +11,8 @@ const productionOrigins = new Set([
 const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
 export const corsOptions: CorsOptions = {
-    origin: (origin, callback) => {
-        if (!origin) {
-            callback(null, true);
-            return;
-        }
-
-        if (localOriginPattern.test(origin) || productionOrigins.has(origin)) {
-            callback(null, true);
-            return;
-        }
-
-        callback(null, true);
-    },
+    // allow all origins; with `credentials: true` use `origin: true`
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     credentials: true,
