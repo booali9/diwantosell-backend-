@@ -10,6 +10,7 @@ import userRoutes from './routes/userRoutes';
 import walletRoutes from './routes/walletRoutes';
 import tradeRoutes from './routes/tradeRoutes';
 import stakingRoutes from './routes/stakingRoutes';
+import p2pRoutes from './routes/p2pRoutes';
 
 
 const app = express();
@@ -81,6 +82,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/staking', stakingRoutes);
+app.use('/api/p2p', p2pRoutes);
 
 
 app.use(notFound);
