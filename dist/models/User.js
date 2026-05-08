@@ -19,9 +19,9 @@ const userSchema = new mongoose_1.default.Schema({
         type: String,
         required: true,
     },
-    phoneNumber: {
+    phone: {
         type: String,
-        default: 'Not set',
+        default: '',
     },
     isProfileComplete: {
         type: Boolean,
@@ -112,15 +112,23 @@ const userSchema = new mongoose_1.default.Schema({
         type: Number,
         default: 0,
     },
+    country: {
+        type: String,
+        default: '',
+    },
+    lastLogin: {
+        type: Date,
+    },
+    clerkId: {
+        type: String,
+    },
 }, {
     timestamps: true,
 });
-userSchema.pre('save', async function (next) {
-    // Generate numeric UID if not present
+userSchema.pre('save', async function () {
     if (!this.uid) {
         this.uid = Math.floor(10000000 + Math.random() * 90000000);
     }
-    // Generate Invitation Code if not present
     if (!this.invitationCode) {
         this.invitationCode = Math.random().toString(36).substring(2, 10).toUpperCase();
         if (this.invitationCode === this.uid.toString()) {
@@ -128,11 +136,10 @@ userSchema.pre('save', async function (next) {
         }
     }
     if (!this.password || !this.isModified('password')) {
-        return next();
+        return;
     }
     const salt = await bcryptjs_1.default.genSalt(10);
     this.password = await bcryptjs_1.default.hash(this.password, salt);
-    next();
 });
 userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcryptjs_1.default.compare(enteredPassword, this.password);

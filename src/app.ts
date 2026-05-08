@@ -17,7 +17,7 @@ import p2pRoutes from './routes/p2pRoutes';
 const app = express();
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/{*path}', cors(corsOptions));
 
 app.use(helmet({
     crossOriginResourcePolicy: false,

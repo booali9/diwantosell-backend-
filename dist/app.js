@@ -18,7 +18,7 @@ const stakingRoutes_1 = __importDefault(require("./routes/stakingRoutes"));
 const p2pRoutes_1 = __importDefault(require("./routes/p2pRoutes"));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)(cors_2.corsOptions));
-app.options('*', (0, cors_1.default)(cors_2.corsOptions));
+app.options('/{*path}', (0, cors_1.default)(cors_2.corsOptions));
 app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: false,
     crossOriginEmbedderPolicy: false,

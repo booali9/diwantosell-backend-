@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setFundPassword = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_1 = __importDefault(require("../models/User"));
 const KYC_1 = __importDefault(require("../models/KYC"));
 const Notification_1 = __importDefault(require("../models/Notification"));
@@ -738,8 +739,8 @@ const setFundPassword = async (req, res) => {
         const isMatch = await user.matchPassword(currentPassword);
         if (!isMatch)
             return res.status(401).json({ message: 'Incorrect login password' });
-        const salt = await bcrypt.genSalt(10);
-        user.fundPassword = await bcrypt.hash(newFundPassword, salt);
+        const salt = await bcryptjs_1.default.genSalt(10);
+        user.fundPassword = await bcryptjs_1.default.hash(newFundPassword, salt);
         // 24h Withdrawal Restriction
         user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await user.save();

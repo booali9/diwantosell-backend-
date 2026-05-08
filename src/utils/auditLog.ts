@@ -16,8 +16,8 @@ interface AuditLogEntry {
  */
 export const createAuditLog = async (entry: AuditLogEntry): Promise<void> => {
     try {
-        await AuditLog.create({
-            action: entry.action,
+await AuditLog.create({
+            action: entry.action as any,
             performedBy: entry.performedBy,
             performedByRole: entry.performedByRole || 'admin',
             targetUser: entry.targetUser,

@@ -36,11 +36,10 @@ const p2pOrderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-p2pOrderSchema.pre('save', function (next) {
+p2pOrderSchema.pre('save', function () {
     if (!this.orderNumber) {
         this.orderNumber = 'P2P' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
     }
-    next();
 });
 
 const P2POrder = mongoose.model('P2POrder', p2pOrderSchema);

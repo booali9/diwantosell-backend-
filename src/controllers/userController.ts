@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { Request, Response } from 'express';
 import User from '../models/User';
 import KYC from '../models/KYC';
@@ -765,7 +766,7 @@ export const setFundPassword = async (req: any, res: Response) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         // Verify login password first for security
-        const isMatch = await user.matchPassword(currentPassword);
+        const isMatch = await (user as any).matchPassword(currentPassword);
         if (!isMatch) return res.status(401).json({ message: 'Incorrect login password' });
 
         const salt = await bcrypt.genSalt(10);

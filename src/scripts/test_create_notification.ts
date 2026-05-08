@@ -45,7 +45,7 @@ const testNotificationCreation = async () => {
         console.log('Attempting to create notification document...');
         const createStartTime = Date.now();
 
-        const notification = await Notification.create(notificationData);
+        const notification = await Notification.create(notificationData as any);
 
         console.log(`Success! Created notification ${notification._id} in ${Date.now() - createStartTime}ms`);
 

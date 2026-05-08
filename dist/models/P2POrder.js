@@ -35,11 +35,10 @@ const p2pOrderSchema = new mongoose_1.default.Schema({
     messages: [p2pMessageSchema],
     orderNumber: { type: String, unique: true },
 }, { timestamps: true });
-p2pOrderSchema.pre('save', function (next) {
+p2pOrderSchema.pre('save', function () {
     if (!this.orderNumber) {
         this.orderNumber = 'P2P' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
     }
-    next();
 });
 const P2POrder = mongoose_1.default.model('P2POrder', p2pOrderSchema);
 exports.default = P2POrder;
