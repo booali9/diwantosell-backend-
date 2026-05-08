@@ -13,10 +13,9 @@ export const protectAdmin = async (req: any, res: Response, next: NextFunction) 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            console.log('[DEBUG] Verifying token:', token.substring(0, 10) + '...');
-            console.log('[DEBUG] Verify Secret:', process.env.JWT_SECRET);
+            console.log('[DEBUG] Verifying admin token with secret length:', JWT_SECRET.length);
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here') as DecodedToken;
+            const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
 
             // Handle temporary bypass admin
             if (decoded.id === 'temp_admin_id') {

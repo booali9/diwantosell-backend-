@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import User from '../models/User';
+import { JWT_SECRET } from '../config/keys';
 
 interface DecodedToken {
     id: string;
@@ -17,7 +18,8 @@ export const protectUser = async (req: any, res: Response, next: NextFunction) =
                 return res.status(401).json({ message: 'Not authorized, no token' });
             }
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here') as DecodedToken;
+            console.log('[DEBUG] Verifying user token with secret length:', JWT_SECRET.length);
+            const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
 
             req.user = await User.findById(decoded.id).select('-password');
 

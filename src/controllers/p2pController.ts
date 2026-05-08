@@ -10,6 +10,7 @@ export const getAds = async (req: any, res: Response) => {
     try {
         const { side, crypto, fiat, paymentMethod, amount, page = 1, limit = 20 } = req.query;
         const filter: any = { status: 'active' };
+        console.log('[DEBUG] P2P getAds filters:', { side, crypto, fiat, paymentMethod, amount });
 
         // When user wants to BUY crypto, show SELL ads (and vice versa)
         if (side === 'buy') filter.side = 'sell';
@@ -27,13 +28,17 @@ export const getAds = async (req: any, res: Response) => {
             }
         }
 
+        /* 
         // Exclude user's own ads if authenticated
         if (req.user) {
             filter.user = { $ne: req.user._id };
         }
+        */
 
         const skip = (Number(page) - 1) * Number(limit);
+        console.log('[DEBUG] P2P final query filter:', filter);
         const total = await P2PAd.countDocuments(filter);
+        console.log('[DEBUG] P2P ads found count:', total);
         const ads = await P2PAd.find(filter)
             .populate('user', 'name email avatar uid kycStatus createdAt isProfileComplete')
             .sort({ createdAt: -1 })
