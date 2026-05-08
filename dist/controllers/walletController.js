@@ -443,7 +443,7 @@ exports.notifyDeposit = notifyDeposit;
 // @access  Private
 const withdrawFunds = async (req, res) => {
     try {
-        const { amount, asset, network, address } = req.body;
+        const { amount, asset, network, address, fundPassword, google2faCode } = req.body;
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             return res.status(400).json({ message: 'Please provide a valid amount' });
         }
@@ -454,7 +454,28 @@ const withdrawFunds = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        // KYC is optional — users can use all features without KYC
+        // 1. Check for 24h Withdrawal Lock
+        if (user.lastWithdrawalRestrictionUntil && new Date() < user.lastWithdrawalRestrictionUntil) {
+            return res.status(403).json({
+                message: 'Your account is under a 24-hour withdrawal restriction due to a security change.',
+                restrictionUntil: user.lastWithdrawalRestrictionUntil
+            });
+        }
+        // 2. Verify Fund Password
+        if (!fundPassword) {
+            return res.status(400).json({ message: 'Fund password is required for withdrawals' });
+        }
+        const isFundMatch = await user.verifyFundPassword(fundPassword);
+        if (!isFundMatch) {
+            return res.status(401).json({ message: 'Incorrect fund password' });
+        }
+        // 3. Verify Google 2FA if enabled
+        if (user.isGoogleAuthenticatorEnabled) {
+            if (!google2faCode) {
+                return res.status(400).json({ message: 'Google Authenticator code is required' });
+            }
+            // Add speakeasy/totp verification logic here if needed
+        }
         if (user.balance < Number(amount)) {
             return res.status(400).json({ message: 'Insufficient balance' });
         }

@@ -8,25 +8,17 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const mongoose_1 = __importDefault(require("mongoose"));
+const cors_2 = require("./config/cors");
 const errorMiddleware_1 = require("./middleware/errorMiddleware");
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const walletRoutes_1 = __importDefault(require("./routes/walletRoutes"));
 const tradeRoutes_1 = __importDefault(require("./routes/tradeRoutes"));
 const stakingRoutes_1 = __importDefault(require("./routes/stakingRoutes"));
+const p2pRoutes_1 = __importDefault(require("./routes/p2pRoutes"));
 const app = (0, express_1.default)();
-// 1. CORS - MUST BE FIRST
-app.use((0, cors_1.default)({
-    origin: (origin, callback) => {
-        // Allow all origins
-        callback(null, true);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true,
-    optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-}));
-// 2. Helmet - configured to be less restrictive for CORS
+app.use((0, cors_1.default)(cors_2.corsOptions));
+app.options('*', (0, cors_1.default)(cors_2.corsOptions));
 app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -35,7 +27,7 @@ app.use((0, morgan_1.default)('dev'));
 app.use(express_1.default.json({ limit: '5mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '5mb' }));
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to DiwanFinance API' });
+    res.json({ message: 'Welcome to Bicoin API' });
 });
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -77,6 +69,7 @@ app.use('/api/users', userRoutes_1.default);
 app.use('/api/wallet', walletRoutes_1.default);
 app.use('/api/trades', tradeRoutes_1.default);
 app.use('/api/staking', stakingRoutes_1.default);
+app.use('/api/p2p', p2pRoutes_1.default);
 app.use(errorMiddleware_1.notFound);
 app.use(errorMiddleware_1.errorHandler);
 exports.default = app;

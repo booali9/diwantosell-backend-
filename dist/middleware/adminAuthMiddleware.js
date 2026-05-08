@@ -19,7 +19,7 @@ const protectAdmin = async (req, res, next) => {
                 req.admin = {
                     _id: 'temp_admin_id',
                     name: 'Super Admin',
-                    email: 'admin@diwanfinance.com',
+                    email: 'admin@Bicoin.com',
                     role: 'superadmin'
                 };
                 return next();

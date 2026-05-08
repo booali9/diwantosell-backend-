@@ -6,6 +6,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
+import { corsOptions } from '../src/config/cors';
 import { errorHandler, notFound } from '../src/middleware/errorMiddleware';
 import adminRoutes from '../src/routes/adminRoutes';
 import userRoutes from '../src/routes/userRoutes';
@@ -39,10 +40,8 @@ async function connectDB() {
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-    origin: '*',
-    credentials: false
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));

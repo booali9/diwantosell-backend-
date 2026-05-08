@@ -12,7 +12,7 @@ const connectDB = async () => {
         return;
     }
     try {
-        const conn = await mongoose_1.default.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/diwanfinance', {
+        const conn = await mongoose_1.default.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/Bicoin', {
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
         });

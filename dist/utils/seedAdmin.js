@@ -13,19 +13,19 @@ const seedAdmin = async () => {
         console.log('🌱 Starting admin seeding process...');
         await (0, db_1.default)();
         console.log('✅ Database connected successfully');
-        const adminExists = await Admin_1.default.findOne({ email: 'admin@diwanfinance.com' });
+        const adminExists = await Admin_1.default.findOne({ email: 'admin@Bicoin.com' });
         if (!adminExists) {
             console.log('👤 Creating new admin user...');
             const admin = new Admin_1.default({
                 name: 'Super Admin',
-                email: 'admin@diwanfinance.com',
+                email: 'admin@Bicoin.com',
                 password: 'admin@123', // This will be hashed by the pre-save hook
                 role: 'superadmin',
                 isActive: true,
             });
             await admin.save();
             console.log('✅ Initial admin seeded successfully!');
-            console.log('📧 Email: admin@diwanfinance.com');
+            console.log('📧 Email: admin@Bicoin.com');
             console.log('🔑 Password: admin@123');
             console.log('👑 Role: superadmin');
         }

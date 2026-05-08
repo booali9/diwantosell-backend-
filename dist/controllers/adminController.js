@@ -21,13 +21,13 @@ const authAdmin = async (req, res) => {
         }
         console.log('[DEBUG] Login attempt for:', email);
         // Temporary bypass for testing - remove this in production
-        if (email === 'admin@diwanfinance.com' && password === 'admin@123') {
+        if (email === 'admin@Bicoin.com' && password === 'admin@123') {
             console.log('[DEBUG] Using temporary bypass login');
             const mockToken = (0, generateToken_1.default)('temp_admin_id');
             return res.json({
                 _id: 'temp_admin_id',
                 name: 'Super Admin',
-                email: 'admin@diwanfinance.com',
+                email: 'admin@Bicoin.com',
                 role: 'superadmin',
                 token: mockToken,
             });
@@ -58,13 +58,13 @@ const authAdmin = async (req, res) => {
         // If it's a MongoDB timeout error and we have the test credentials, use bypass
         if (error instanceof Error && error.message.includes('buffering timed out')) {
             const { email, password } = req.body;
-            if (email === 'admin@diwanfinance.com' && password === 'admin@123') {
+            if (email === 'admin@Bicoin.com' && password === 'admin@123') {
                 console.log('[DEBUG] MongoDB timeout - using bypass login');
                 const mockToken = (0, generateToken_1.default)('temp_admin_id');
                 return res.json({
                     _id: 'temp_admin_id',
                     name: 'Super Admin',
-                    email: 'admin@diwanfinance.com',
+                    email: 'admin@Bicoin.com',
                     role: 'superadmin',
                     token: mockToken,
                 });
@@ -87,7 +87,7 @@ const getAdminProfile = async (req, res) => {
             return res.json({
                 _id: 'temp_admin_id',
                 name: 'Super Admin',
-                email: 'admin@diwanfinance.com',
+                email: 'admin@Bicoin.com',
                 role: 'superadmin',
             });
         }

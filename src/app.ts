@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import { corsOptions } from './config/cors';
 import { errorHandler, notFound } from './middleware/errorMiddleware';
 import adminRoutes from './routes/adminRoutes';
 import userRoutes from './routes/userRoutes';
@@ -15,19 +16,9 @@ import p2pRoutes from './routes/p2pRoutes';
 
 const app = express();
 
-// 1. CORS - MUST BE FIRST
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow all origins
-        callback(null, true);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true,
-    optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// 2. Helmet - configured to be less restrictive for CORS
 app.use(helmet({
     crossOriginResourcePolicy: false,
     crossOriginEmbedderPolicy: false,

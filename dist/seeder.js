@@ -10,7 +10,7 @@ dotenv_1.default.config();
 const seedAdmin = async () => {
     try {
         await (0, db_1.default)();
-        const adminEmail = 'admin@diwanfinance.com';
+        const adminEmail = 'admin@Bicoin.com';
         const adminPassword = 'admin@123';
         const existingAdmin = await Admin_1.default.findOne({ email: adminEmail });
         if (existingAdmin) {

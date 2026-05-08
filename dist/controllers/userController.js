@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
+exports.setFundPassword = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const KYC_1 = __importDefault(require("../models/KYC"));
 const Notification_1 = __importDefault(require("../models/Notification"));
@@ -220,6 +220,9 @@ const authUser = async (req, res) => {
                 isEmailVerified: user.isEmailVerified,
                 isProfileComplete: user.isProfileComplete,
                 isFrozen: user.isFrozen,
+                uid: user.uid,
+                invitationCode: user.invitationCode,
+                isGoogleAuthenticatorEnabled: user.isGoogleAuthenticatorEnabled,
                 token: (0, generateToken_1.default)(user._id.toString()),
             });
         }
@@ -340,7 +343,7 @@ exports.resetPassword = resetPassword;
 // @access  Private
 const getUserProfile = async (req, res) => {
     try {
-        const user = await User_1.default.findById(req.user._id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        const user = await User_1.default.findById(req.user._id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires -googleAuthenticatorSecret -fundPassword');
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -612,6 +615,8 @@ const changePassword = async (req, res) => {
             return res.status(400).json({ message: 'Current password is incorrect' });
         }
         user.password = newPassword; // Will be hashed by pre-save hook
+        // 24h Withdrawal Restriction
+        user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await user.save();
         res.json({ message: 'Password changed successfully' });
     }
@@ -644,6 +649,8 @@ const changeEmail = async (req, res) => {
             return res.status(400).json({ message: 'Email is already in use' });
         }
         user.email = newEmail;
+        // 24h Withdrawal Restriction
+        user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await user.save();
         res.json({
             message: 'Email changed successfully',
@@ -684,3 +691,62 @@ const deleteAccount = async (req, res) => {
     }
 };
 exports.deleteAccount = deleteAccount;
+// @desc    Enable Google 2FA
+// @route   POST /api/users/2fa/enable
+// @access  Private
+const enable2FA = async (req, res) => {
+    try {
+        const user = await User_1.default.findById(req.user._id);
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+        user.isGoogleAuthenticatorEnabled = true;
+        await user.save();
+        res.json({ message: 'Google Authenticator enabled successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.enable2FA = enable2FA;
+// @desc    Disable Google 2FA
+// @route   POST /api/users/2fa/disable
+// @access  Private
+const disable2FA = async (req, res) => {
+    try {
+        const user = await User_1.default.findById(req.user._id);
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+        user.isGoogleAuthenticatorEnabled = false;
+        await user.save();
+        res.json({ message: 'Google Authenticator disabled successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.disable2FA = disable2FA;
+// @desc    Set/Change Fund Password
+// @route   POST /api/users/fund-password
+// @access  Private
+const setFundPassword = async (req, res) => {
+    try {
+        const { currentPassword, newFundPassword } = req.body;
+        const user = await User_1.default.findById(req.user._id);
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+        // Verify login password first for security
+        const isMatch = await user.matchPassword(currentPassword);
+        if (!isMatch)
+            return res.status(401).json({ message: 'Incorrect login password' });
+        const salt = await bcrypt.genSalt(10);
+        user.fundPassword = await bcrypt.hash(newFundPassword, salt);
+        // 24h Withdrawal Restriction
+        user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await user.save();
+        res.json({ message: 'Fund password set successfully. 24h withdrawal restriction applied.' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.setFundPassword = setFundPassword;

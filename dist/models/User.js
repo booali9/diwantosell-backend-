@@ -15,29 +15,21 @@ const userSchema = new mongoose_1.default.Schema({
         required: true,
         unique: true,
     },
-    phone: {
-        type: String,
-        required: false,
-    },
     password: {
         type: String,
-        required: false,
+        required: true,
     },
-    googleId: {
+    phoneNumber: {
         type: String,
-        unique: true,
-        sparse: true
+        default: 'Not set',
     },
-    clerkId: {
-        type: String,
-        unique: true,
-        sparse: true
+    isProfileComplete: {
+        type: Boolean,
+        default: false,
     },
-    country: String,
-    kycStatus: {
+    avatar: {
         type: String,
-        enum: ['none', 'pending', 'verified', 'rejected'],
-        default: 'none',
+        default: '',
     },
     balance: {
         type: Number,
@@ -47,34 +39,41 @@ const userSchema = new mongoose_1.default.Schema({
         type: Number,
         default: 0,
     },
-    isFrozen: {
-        type: Boolean,
-        default: false,
-    },
-    lastLogin: Date,
-    walletAddress: {
-        type: String,
-        unique: true,
-        sparse: true
-    },
-    otp: {
-        type: String,
-    },
-    otpExpires: {
-        type: Date,
-    },
     isEmailVerified: {
         type: Boolean,
         default: false,
     },
-    isProfileComplete: {
+    otp: String,
+    otpExpires: Date,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    kycStatus: {
+        type: String,
+        enum: ['none', 'pending', 'verified', 'rejected'],
+        default: 'none',
+    },
+    kycData: {
+        firstName: String,
+        lastName: String,
+        dateOfBirth: Date,
+        address: String,
+        city: String,
+        postalCode: String,
+        country: String,
+        documentType: {
+            type: String,
+            enum: ['passport', 'id-card', 'national-passport', 'drivers-license'],
+        },
+        documentNumber: String,
+        documentFront: String,
+        documentBack: String,
+        selfie: String,
+    },
+    isFrozen: {
         type: Boolean,
         default: false,
     },
-    resetPasswordExpires: {
-        type: Date,
-    },
-    resetPasswordToken: {
+    walletAddress: {
         type: String,
     },
     defaultNetwork: {
@@ -82,20 +81,66 @@ const userSchema = new mongoose_1.default.Schema({
         enum: ['Internal Ledger', 'Ethereum', 'BNB Chain', 'Polygon'],
         default: 'Internal Ledger',
     },
+    uid: {
+        type: Number,
+        unique: true,
+        sparse: true
+    },
+    invitationCode: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    isGoogleAuthenticatorEnabled: {
+        type: Boolean,
+        default: false,
+    },
+    googleAuthenticatorSecret: {
+        type: String,
+    },
+    fundPassword: {
+        type: String,
+    },
+    lastWithdrawalRestrictionUntil: {
+        type: Date,
+    },
+    referredBy: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: 'User',
+    },
+    referralCount: {
+        type: Number,
+        default: 0,
+    },
 }, {
     timestamps: true,
 });
-userSchema.pre('save', async function () {
+userSchema.pre('save', async function (next) {
+    // Generate numeric UID if not present
+    if (!this.uid) {
+        this.uid = Math.floor(10000000 + Math.random() * 90000000);
+    }
+    // Generate Invitation Code if not present
+    if (!this.invitationCode) {
+        this.invitationCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        if (this.invitationCode === this.uid.toString()) {
+            this.invitationCode = Math.random().toString(36).substring(2, 11).toUpperCase();
+        }
+    }
     if (!this.password || !this.isModified('password')) {
-        return;
+        return next();
     }
     const salt = await bcryptjs_1.default.genSalt(10);
     this.password = await bcryptjs_1.default.hash(this.password, salt);
+    next();
 });
 userSchema.methods.matchPassword = async function (enteredPassword) {
-    if (!this.password)
-        return false;
     return await bcryptjs_1.default.compare(enteredPassword, this.password);
+};
+userSchema.methods.verifyFundPassword = async function (enteredPassword) {
+    if (!this.fundPassword)
+        return false;
+    return await bcryptjs_1.default.compare(enteredPassword, this.fundPassword);
 };
 const User = mongoose_1.default.model('User', userSchema);
 exports.default = User;
