@@ -16,6 +16,8 @@ export const getAds = async (req: any, res: Response) => {
         if (side === 'buy') filter.side = 'sell';
         else if (side === 'sell') filter.side = 'buy';
 
+        console.log('[DEBUG] P2P getAds parsed side filter:', filter.side);
+
         if (crypto) filter.crypto = (crypto as string).toUpperCase();
         if (fiat) filter.fiat = (fiat as string).toUpperCase();
         if (paymentMethod) filter.paymentMethods = { $in: [paymentMethod] };
@@ -182,6 +184,8 @@ export const createOrder = async (req: any, res: Response) => {
             return res.status(400).json({ message: 'Insufficient ad liquidity' });
         }
 
+        console.log('[DEBUG] createOrder ad:', ad.side, ad._id);
+        
         // Prevent self-trading
         if (ad.user._id.toString() === req.user._id.toString()) {
             return res.status(400).json({ message: 'Cannot trade with your own ad' });
@@ -200,7 +204,8 @@ export const createOrder = async (req: any, res: Response) => {
             // Lock seller's balance for buy ads
             const sellerUser = await User.findById(seller);
             if (!sellerUser || (sellerUser.balance || 0) < cryptoAmount) {
-                return res.status(400).json({ message: 'Insufficient balance to sell' });
+                console.log(`[DEBUG] Insufficient balance. Ad side: ${ad.side}. Seller: ${seller}. CryptoAmount: ${cryptoAmount}. Balance: ${sellerUser?.balance}`);
+                return res.status(400).json({ message: 'Insufficient balance to fulfill this Buy ad. You are acting as the seller.' });
             }
             sellerUser.balance = (sellerUser.balance || 0) - cryptoAmount;
             await sellerUser.save();
