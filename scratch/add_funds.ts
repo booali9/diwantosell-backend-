@@ -11,7 +11,7 @@ async function addFunds() {
         await mongoose.connect(MONGODB_URI);
         console.log('Connected to MongoDB');
 
-        const email = 'kazmi@gmail.com';
+        const email = 'kazmi4600088@cloud.bender.edu.pk';
         const amountToAdd = 1000;
 
         const user = await User.findOne({ email: email });
