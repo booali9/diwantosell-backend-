@@ -506,7 +506,10 @@ export const withdrawFunds = async (req: any, res: Response) => {
             if (!google2faCode) {
                 return res.status(400).json({ message: 'Google Authenticator code is required' });
             }
-            // Add speakeasy/totp verification logic here if needed
+            const { verifyTOTP } = await import('../utils/totp');
+            if (!verifyTOTP(google2faCode, (user as any).googleAuthenticatorSecret)) {
+                return res.status(400).json({ message: 'Invalid Google Authenticator code' });
+            }
         }
 
         if (user.balance < Number(amount)) {

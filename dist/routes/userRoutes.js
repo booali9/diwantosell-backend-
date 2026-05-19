@@ -28,7 +28,10 @@ router.put('/change-email', userAuthMiddleware_1.protectUser, userController_1.c
 router.delete('/account', userAuthMiddleware_1.protectUser, userController_1.deleteAccount);
 router.post('/2fa/enable', userAuthMiddleware_1.protectUser, userController_1.enable2FA);
 router.post('/2fa/disable', userAuthMiddleware_1.protectUser, userController_1.disable2FA);
+router.post('/2fa/change', userAuthMiddleware_1.protectUser, userController_1.change2FA);
 router.post('/fund-password', userAuthMiddleware_1.protectUser, userController_1.setFundPassword);
+router.get('/devices', userAuthMiddleware_1.protectUser, userController_1.getDeviceSessions);
+router.post('/devices/revoke', userAuthMiddleware_1.protectUser, userController_1.revokeDeviceSession);
 // KYC
 router.post('/kyc', userAuthMiddleware_1.protectUser, userController_1.submitKYC);
 router.get('/kyc-status', userAuthMiddleware_1.protectUser, userController_1.getKYCStatus);

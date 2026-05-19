@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.protectUser = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
+const DeviceSession_1 = __importDefault(require("../models/DeviceSession"));
+const keys_1 = require("../config/keys");
 const protectUser = async (req, res, next) => {
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -14,7 +16,24 @@ const protectUser = async (req, res, next) => {
             if (!token) {
                 return res.status(401).json({ message: 'Not authorized, no token' });
             }
-            const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here');
+            console.log('[DEBUG] Verifying user token with secret length:', keys_1.JWT_SECRET.length);
+            const decoded = jsonwebtoken_1.default.verify(token, keys_1.JWT_SECRET);
+            // If the token contains a sessionId, verify the session is still active
+            if (decoded.sessionId) {
+                const session = await DeviceSession_1.default.findOne({
+                    sessionId: decoded.sessionId,
+                    user: decoded.id,
+                });
+                if (!session || !session.isActive) {
+                    return res.status(401).json({
+                        message: 'Session has been revoked. Please login again.',
+                        code: 'SESSION_REVOKED',
+                    });
+                }
+                // Update last activity timestamp
+                session.lastActive = new Date();
+                await session.save();
+            }
             req.user = await User_1.default.findById(decoded.id).select('-password');
             if (!req.user) {
                 return res.status(401).json({ message: 'Not authorized, user not found' });

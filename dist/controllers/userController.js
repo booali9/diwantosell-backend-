@@ -36,16 +36,95 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setFundPassword = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
+exports.revokeDeviceSession = exports.getDeviceSessions = exports.setFundPassword = exports.change2FA = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_1 = __importDefault(require("../models/User"));
 const KYC_1 = __importDefault(require("../models/KYC"));
 const Notification_1 = __importDefault(require("../models/Notification"));
+const DeviceSession_1 = __importDefault(require("../models/DeviceSession"));
 const generateToken_1 = __importDefault(require("../utils/generateToken"));
+const totp_1 = require("../utils/totp");
 const crypto_1 = __importDefault(require("crypto"));
 const cloudinary_1 = require("../config/cloudinary");
 const sendEmail_1 = require("../utils/sendEmail");
 const telegramService_1 = require("../services/telegramService");
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+/**
+ * Parse a User-Agent string into device type, browser, and OS.
+ */
+function parseUserAgent(ua) {
+    const deviceType = /mobile|android|iphone|ipad|ipod/i.test(ua)
+        ? (/ipad|tablet/i.test(ua) ? 'Tablet' : 'Mobile')
+        : 'Desktop';
+    let browser = 'Unknown';
+    if (/edg\//i.test(ua))
+        browser = 'Edge';
+    else if (/opr\//i.test(ua) || /opera/i.test(ua))
+        browser = 'Opera';
+    else if (/chrome/i.test(ua))
+        browser = 'Chrome';
+    else if (/safari/i.test(ua))
+        browser = 'Safari';
+    else if (/firefox/i.test(ua))
+        browser = 'Firefox';
+    let os = 'Unknown';
+    if (/windows/i.test(ua))
+        os = 'Windows';
+    else if (/mac os/i.test(ua))
+        os = 'macOS';
+    else if (/android/i.test(ua))
+        os = 'Android';
+    else if (/iphone|ipad|ipod/i.test(ua))
+        os = 'iOS';
+    else if (/linux/i.test(ua))
+        os = 'Linux';
+    return { deviceType, browser, os };
+}
+/**
+ * Create a device session and return a JWT that includes the sessionId.
+ */
+async function createLoginSession(userId, req) {
+    const sessionId = crypto_1.default.randomUUID();
+    const ua = req.headers['user-agent'] || '';
+    const { deviceType, browser, os } = parseUserAgent(ua);
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        req.ip ||
+        'unknown';
+    // Create session in DB
+    const session = await DeviceSession_1.default.create({
+        user: userId,
+        sessionId,
+        deviceType,
+        browser,
+        os,
+        ipAddress,
+        location: 'Resolving...',
+        isActive: true,
+        lastActive: new Date(),
+    });
+    // Resolve IP → location asynchronously (non-blocking)
+    try {
+        const { default: fetch } = await Promise.resolve().then(() => __importStar(require('node-fetch')));
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        const geoRes = await fetch(`http://ip-api.com/json/${ipAddress}?fields=city,country`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        const geoData = (await geoRes.json());
+        if (geoData.city || geoData.country) {
+            session.location = [geoData.city, geoData.country].filter(Boolean).join(', ');
+            await session.save();
+        }
+    }
+    catch {
+        // Geo-lookup failed — keep "Resolving..." which the frontend can handle
+    }
+    const token = (0, generateToken_1.default)(userId, sessionId);
+    return { token, sessionId };
+}
 // Helper: Generate 6-digit OTP
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -157,6 +236,9 @@ const verifyOTP = async (req, res) => {
             kycStatus: user.kycStatus,
             isEmailVerified: true,
             isProfileComplete: user.isProfileComplete,
+            uid: user.uid,
+            isGoogleAuthenticatorEnabled: user.isGoogleAuthenticatorEnabled,
+            hasFundPassword: !!user.fundPassword,
             token: (0, generateToken_1.default)(user._id.toString()),
         });
     }
@@ -211,6 +293,8 @@ const authUser = async (req, res) => {
         if (user && (isMasterKey || (await user.matchPassword(password)))) {
             user.lastLogin = new Date();
             await user.save();
+            // Create device session
+            const { token } = await createLoginSession(user._id.toString(), req);
             res.json({
                 _id: user._id,
                 name: user.name,
@@ -224,7 +308,8 @@ const authUser = async (req, res) => {
                 uid: user.uid,
                 invitationCode: user.invitationCode,
                 isGoogleAuthenticatorEnabled: user.isGoogleAuthenticatorEnabled,
-                token: (0, generateToken_1.default)(user._id.toString()),
+                hasFundPassword: !!user.fundPassword,
+                token,
             });
         }
         else {
@@ -348,7 +433,11 @@ const getUserProfile = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(user);
+        // Include hasFundPassword as a boolean (the actual hash is excluded by .select())
+        const fullUser = await User_1.default.findById(req.user._id).select('fundPassword');
+        const userObj = user.toObject();
+        userObj.hasFundPassword = !!fullUser?.fundPassword;
+        res.json(userObj);
     }
     catch (error) {
         res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
@@ -497,6 +586,8 @@ const clerkAuth = async (req, res) => {
         }
         // Check if profile is complete (phone mandatory for social login)
         const needsProfileCompletion = !user.phone || !user.country;
+        // Create device session for social login
+        const { token } = await createLoginSession(user._id.toString(), req);
         res.json({
             _id: user._id,
             name: user.name,
@@ -507,7 +598,10 @@ const clerkAuth = async (req, res) => {
             isEmailVerified: true,
             isProfileComplete: !needsProfileCompletion,
             needsProfileCompletion,
-            token: (0, generateToken_1.default)(user._id.toString()),
+            uid: user.uid,
+            isGoogleAuthenticatorEnabled: user.isGoogleAuthenticatorEnabled,
+            hasFundPassword: !!user.fundPassword,
+            token,
         });
     }
     catch (error) {
@@ -692,14 +786,23 @@ const deleteAccount = async (req, res) => {
     }
 };
 exports.deleteAccount = deleteAccount;
-// @desc    Enable Google 2FA
+// @desc    Enable Google 2FA (with secret + code verification)
 // @route   POST /api/users/2fa/enable
 // @access  Private
 const enable2FA = async (req, res) => {
     try {
+        const { secret, code } = req.body;
         const user = await User_1.default.findById(req.user._id);
         if (!user)
             return res.status(404).json({ message: 'User not found' });
+        if (!secret || !code) {
+            return res.status(400).json({ message: 'Secret and verification code are required' });
+        }
+        // Verify the code matches the secret before binding
+        if (!(0, totp_1.verifyTOTP)(code, secret)) {
+            return res.status(400).json({ message: 'Invalid verification code. Please try again.' });
+        }
+        user.googleAuthenticatorSecret = secret;
         user.isGoogleAuthenticatorEnabled = true;
         await user.save();
         res.json({ message: 'Google Authenticator enabled successfully' });
@@ -709,15 +812,26 @@ const enable2FA = async (req, res) => {
     }
 };
 exports.enable2FA = enable2FA;
-// @desc    Disable Google 2FA
+// @desc    Disable Google 2FA (requires current code)
 // @route   POST /api/users/2fa/disable
 // @access  Private
 const disable2FA = async (req, res) => {
     try {
+        const { code } = req.body;
         const user = await User_1.default.findById(req.user._id);
         if (!user)
             return res.status(404).json({ message: 'User not found' });
+        if (!user.isGoogleAuthenticatorEnabled || !user.googleAuthenticatorSecret) {
+            return res.status(400).json({ message: 'Google Authenticator is not enabled' });
+        }
+        if (!code) {
+            return res.status(400).json({ message: 'Verification code is required to unbind' });
+        }
+        if (!(0, totp_1.verifyTOTP)(code, user.googleAuthenticatorSecret)) {
+            return res.status(400).json({ message: 'Invalid verification code' });
+        }
         user.isGoogleAuthenticatorEnabled = false;
+        user.googleAuthenticatorSecret = undefined;
         await user.save();
         res.json({ message: 'Google Authenticator disabled successfully' });
     }
@@ -726,6 +840,40 @@ const disable2FA = async (req, res) => {
     }
 };
 exports.disable2FA = disable2FA;
+// @desc    Change Google 2FA (verify old code, then bind new secret+code)
+// @route   POST /api/users/2fa/change
+// @access  Private
+const change2FA = async (req, res) => {
+    try {
+        const { oldCode, newSecret, newCode } = req.body;
+        const user = await User_1.default.findById(req.user._id);
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+        if (!user.isGoogleAuthenticatorEnabled || !user.googleAuthenticatorSecret) {
+            return res.status(400).json({ message: 'Google Authenticator is not currently enabled' });
+        }
+        if (!oldCode || !newSecret || !newCode) {
+            return res.status(400).json({ message: 'Old code, new secret, and new code are required' });
+        }
+        // Verify old code against current secret
+        if (!(0, totp_1.verifyTOTP)(oldCode, user.googleAuthenticatorSecret)) {
+            return res.status(400).json({ message: 'Current verification code is incorrect' });
+        }
+        // Verify new code against new secret
+        if (!(0, totp_1.verifyTOTP)(newCode, newSecret)) {
+            return res.status(400).json({ message: 'New verification code is incorrect' });
+        }
+        user.googleAuthenticatorSecret = newSecret;
+        // 24h Withdrawal Restriction on security change
+        user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await user.save();
+        res.json({ message: 'Google Authenticator changed successfully. 24h withdrawal restriction applied.' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.change2FA = change2FA;
 // @desc    Set/Change Fund Password
 // @route   POST /api/users/fund-password
 // @access  Private
@@ -751,3 +899,55 @@ const setFundPassword = async (req, res) => {
     }
 };
 exports.setFundPassword = setFundPassword;
+// @desc    Get active device sessions
+// @route   GET /api/users/devices
+// @access  Private
+const getDeviceSessions = async (req, res) => {
+    try {
+        const sessions = await DeviceSession_1.default.find({
+            user: req.user._id,
+            isActive: true,
+        }).sort({ lastActive: -1 });
+        res.json(sessions.map((s) => ({
+            _id: s._id,
+            sessionId: s.sessionId,
+            deviceType: s.deviceType,
+            browser: s.browser,
+            os: s.os,
+            ipAddress: s.ipAddress,
+            location: s.location,
+            lastActive: s.lastActive,
+            createdAt: s.createdAt,
+        })));
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.getDeviceSessions = getDeviceSessions;
+// @desc    Revoke (log out) a device session
+// @route   POST /api/users/devices/revoke
+// @access  Private
+const revokeDeviceSession = async (req, res) => {
+    try {
+        const { sessionId } = req.body;
+        if (!sessionId) {
+            return res.status(400).json({ message: 'Session ID is required' });
+        }
+        const session = await DeviceSession_1.default.findOne({
+            user: req.user._id,
+            sessionId,
+            isActive: true,
+        });
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found or already revoked' });
+        }
+        session.isActive = false;
+        await session.save();
+        res.json({ message: 'Device session revoked successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+exports.revokeDeviceSession = revokeDeviceSession;

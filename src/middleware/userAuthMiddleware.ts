@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import User from '../models/User';
+import DeviceSession from '../models/DeviceSession';
 import { JWT_SECRET } from '../config/keys';
 
 interface DecodedToken {
     id: string;
+    sessionId?: string;
 }
 
 export const protectUser = async (req: any, res: Response, next: NextFunction) => {
@@ -20,6 +22,23 @@ export const protectUser = async (req: any, res: Response, next: NextFunction) =
 
             console.log('[DEBUG] Verifying user token with secret length:', JWT_SECRET.length);
             const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
+
+            // If the token contains a sessionId, verify the session is still active
+            if (decoded.sessionId) {
+                const session = await DeviceSession.findOne({
+                    sessionId: decoded.sessionId,
+                    user: decoded.id,
+                });
+                if (!session || !session.isActive) {
+                    return res.status(401).json({
+                        message: 'Session has been revoked. Please login again.',
+                        code: 'SESSION_REVOKED',
+                    });
+                }
+                // Update last activity timestamp
+                session.lastActive = new Date();
+                await session.save();
+            }
 
             req.user = await User.findById(decoded.id).select('-password');
 

@@ -6,14 +6,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.protectAdmin = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const Admin_1 = __importDefault(require("../models/Admin"));
+const keys_1 = require("../config/keys");
 const protectAdmin = async (req, res, next) => {
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            console.log('[DEBUG] Verifying token:', token.substring(0, 10) + '...');
-            console.log('[DEBUG] Verify Secret:', process.env.JWT_SECRET);
-            const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here');
+            console.log('[DEBUG] Verifying admin token with secret length:', keys_1.JWT_SECRET.length);
+            const decoded = jsonwebtoken_1.default.verify(token, keys_1.JWT_SECRET);
             // Handle temporary bypass admin
             if (decoded.id === 'temp_admin_id') {
                 req.admin = {

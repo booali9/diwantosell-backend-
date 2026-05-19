@@ -13,11 +13,13 @@ const getAds = async (req, res) => {
     try {
         const { side, crypto, fiat, paymentMethod, amount, page = 1, limit = 20 } = req.query;
         const filter = { status: 'active' };
+        console.log('[DEBUG] P2P getAds filters:', { side, crypto, fiat, paymentMethod, amount });
         // When user wants to BUY crypto, show SELL ads (and vice versa)
         if (side === 'buy')
             filter.side = 'sell';
         else if (side === 'sell')
             filter.side = 'buy';
+        console.log('[DEBUG] P2P getAds parsed side filter:', filter.side);
         if (crypto)
             filter.crypto = crypto.toUpperCase();
         if (fiat)
@@ -31,12 +33,16 @@ const getAds = async (req, res) => {
                 filter.maxOrderAmount = { $gte: amt };
             }
         }
+        /*
         // Exclude user's own ads if authenticated
         if (req.user) {
             filter.user = { $ne: req.user._id };
         }
+        */
         const skip = (Number(page) - 1) * Number(limit);
+        console.log('[DEBUG] P2P final query filter:', filter);
         const total = await P2PAd_1.default.countDocuments(filter);
+        console.log('[DEBUG] P2P ads found count:', total);
         const ads = await P2PAd_1.default.find(filter)
             .populate('user', 'name email avatar uid kycStatus createdAt isProfileComplete')
             .sort({ createdAt: -1 })
@@ -174,6 +180,7 @@ const createOrder = async (req, res) => {
         if (cryptoAmount > available) {
             return res.status(400).json({ message: 'Insufficient ad liquidity' });
         }
+        console.log('[DEBUG] createOrder ad:', ad.side, ad._id);
         // Prevent self-trading
         if (ad.user._id.toString() === req.user._id.toString()) {
             return res.status(400).json({ message: 'Cannot trade with your own ad' });
@@ -191,7 +198,8 @@ const createOrder = async (req, res) => {
             // Lock seller's balance for buy ads
             const sellerUser = await User_1.default.findById(seller);
             if (!sellerUser || (sellerUser.balance || 0) < cryptoAmount) {
-                return res.status(400).json({ message: 'Insufficient balance to sell' });
+                console.log(`[DEBUG] Insufficient balance. Ad side: ${ad.side}. Seller: ${seller}. CryptoAmount: ${cryptoAmount}. Balance: ${sellerUser?.balance}`);
+                return res.status(400).json({ message: 'Insufficient balance to fulfill this Buy ad. You are acting as the seller.' });
             }
             sellerUser.balance = (sellerUser.balance || 0) - cryptoAmount;
             await sellerUser.save();

@@ -20,7 +20,10 @@ import {
     deleteAccount,
     enable2FA,
     disable2FA,
+    change2FA,
     setFundPassword,
+    getDeviceSessions,
+    revokeDeviceSession,
 } from '../controllers/userController';
 import { protectUser } from '../middleware/userAuthMiddleware';
 
@@ -51,7 +54,10 @@ router.put('/change-email', protectUser, changeEmail);
 router.delete('/account', protectUser, deleteAccount);
 router.post('/2fa/enable', protectUser, enable2FA);
 router.post('/2fa/disable', protectUser, disable2FA);
+router.post('/2fa/change', protectUser, change2FA);
 router.post('/fund-password', protectUser, setFundPassword);
+router.get('/devices', protectUser, getDeviceSessions);
+router.post('/devices/revoke', protectUser, revokeDeviceSession);
 
 // KYC
 router.post('/kyc', protectUser, submitKYC);
