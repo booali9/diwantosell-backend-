@@ -24,6 +24,7 @@ import {
     setFundPassword,
     getDeviceSessions,
     revokeDeviceSession,
+    getReferralStats,
 } from '../controllers/userController';
 import { protectUser } from '../middleware/userAuthMiddleware';
 
@@ -47,6 +48,9 @@ router.post('/reset-password', resetPassword);
 router.route('/profile')
     .get(protectUser, getUserProfile)
     .put(protectUser, updateUserProfile);
+
+// Referrals
+router.get('/referrals', protectUser, getReferralStats);
 
 // Security
 router.put('/change-password', protectUser, changePassword);

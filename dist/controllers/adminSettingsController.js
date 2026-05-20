@@ -99,17 +99,20 @@ const updateTransactionFees = async (req, res) => {
     try {
         console.log('[DEBUG] Updating transaction fees...');
         const settings = await SystemSettings_1.default.getSettings();
-        const { depositFee, withdrawalFee } = req.body;
+        const { depositFee, withdrawalFee, referralCommissionRate } = req.body;
         if (depositFee !== undefined)
             settings.depositFee = depositFee;
         if (withdrawalFee !== undefined)
             settings.withdrawalFee = withdrawalFee;
+        if (referralCommissionRate !== undefined)
+            settings.referralCommissionRate = referralCommissionRate;
         setLastUpdatedBy(settings, req.admin);
         await settings.save();
         console.log('[DEBUG] Transaction fees updated successfully');
         res.json({
             depositFee: settings.depositFee,
             withdrawalFee: settings.withdrawalFee,
+            referralCommissionRate: settings.referralCommissionRate,
         });
     }
     catch (error) {

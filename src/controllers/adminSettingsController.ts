@@ -107,10 +107,11 @@ export const updateTransactionFees = async (req: any, res: Response) => {
 
         const settings = await (SystemSettings as any).getSettings();
         
-        const { depositFee, withdrawalFee } = req.body;
+        const { depositFee, withdrawalFee, referralCommissionRate } = req.body;
 
         if (depositFee !== undefined) settings.depositFee = depositFee;
         if (withdrawalFee !== undefined) settings.withdrawalFee = withdrawalFee;
+        if (referralCommissionRate !== undefined) settings.referralCommissionRate = referralCommissionRate;
 
         setLastUpdatedBy(settings, req.admin);
         await settings.save();
@@ -120,6 +121,7 @@ export const updateTransactionFees = async (req: any, res: Response) => {
         res.json({
             depositFee: settings.depositFee,
             withdrawalFee: settings.withdrawalFee,
+            referralCommissionRate: settings.referralCommissionRate,
         });
     } catch (error) {
         console.error('[ERROR] Update transaction fees error:', error);

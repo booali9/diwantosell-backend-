@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.revokeDeviceSession = exports.getDeviceSessions = exports.setFundPassword = exports.change2FA = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
+exports.getReferralStats = exports.revokeDeviceSession = exports.getDeviceSessions = exports.setFundPassword = exports.change2FA = exports.disable2FA = exports.enable2FA = exports.deleteAccount = exports.changeEmail = exports.changePassword = exports.getUnreadNotificationCount = exports.markNotificationRead = exports.getUserNotifications = exports.clerkAuth = exports.getKYCStatus = exports.submitKYC = exports.updateUserProfile = exports.getUserProfile = exports.resetPassword = exports.verifyResetOTP = exports.forgotPassword = exports.authUser = exports.resendOTP = exports.verifyOTP = exports.registerUser = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_1 = __importDefault(require("../models/User"));
 const KYC_1 = __importDefault(require("../models/KYC"));
@@ -532,6 +532,12 @@ const updateUserProfile = async (req, res) => {
             user.lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
         }
         user.country = req.body.country || user.country;
+        if (req.body.notificationPreferences) {
+            user.notificationPreferences = {
+                ...user.notificationPreferences,
+                ...req.body.notificationPreferences
+            };
+        }
         // Check profile completeness
         if (user.name && user.phone && user.country) {
             user.isProfileComplete = true;
@@ -1026,3 +1032,45 @@ const revokeDeviceSession = async (req, res) => {
     }
 };
 exports.revokeDeviceSession = revokeDeviceSession;
+// @desc    Get referral stats
+// @route   GET /api/users/referrals
+// @access  Private
+const Trade_1 = __importDefault(require("../models/Trade"));
+const SystemSettings_1 = __importDefault(require("../models/SystemSettings"));
+const getReferralStats = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        // Get system referral commission rate
+        const settings = await SystemSettings_1.default.getSettings();
+        const rebateRatio = settings.referralCommissionRate || 20; // Default 20%
+        // Find all users referred by current user
+        const invitees = await User_1.default.find({ referredBy: userId }).select('_id uid createdAt email');
+        const stats = await Promise.all(invitees.map(async (invitee) => {
+            // Get total transaction amount and fees for this invitee
+            const trades = await Trade_1.default.find({ user: invitee._id, status: 'closed' });
+            let transactionAmount = 0;
+            let transactionFee = 0;
+            trades.forEach((trade) => {
+                transactionAmount += Number(trade.amount) || 0;
+                transactionFee += Number(trade.fee) || 0;
+            });
+            // If there are other transactions (like withdrawals with fees), we could add them here
+            // For Biconomy referral, it usually refers to trading fees
+            const rebateAmount = (transactionFee * (rebateRatio / 100));
+            return {
+                uid: invitee.uid,
+                email: invitee.email,
+                activationDate: invitee.createdAt,
+                transactionAmount,
+                transactionFee,
+                rebateRatio,
+                rebateAmount
+            };
+        }));
+        res.json(stats);
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+};
+exports.getReferralStats = getReferralStats;

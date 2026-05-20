@@ -538,6 +538,13 @@ export const updateUserProfile = async (req: any, res: Response) => {
 
         user.country = req.body.country || user.country;
 
+        if (req.body.notificationPreferences) {
+            (user as any).notificationPreferences = {
+                ...(user as any).notificationPreferences,
+                ...req.body.notificationPreferences
+            };
+        }
+
         // Check profile completeness
         if (user.name && user.phone && user.country) {
             user.isProfileComplete = true;
@@ -1075,5 +1082,57 @@ export const revokeDeviceSession = async (req: any, res: Response) => {
         res.json({ message: 'Device session revoked successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Get referral stats
+// @route   GET /api/users/referrals
+// @access  Private
+import Trade from '../models/Trade';
+import Transaction from '../models/Transaction';
+import SystemSettings from '../models/SystemSettings';
+
+export const getReferralStats = async (req: any, res: Response) => {
+    try {
+        const userId = req.user._id;
+
+        // Get system referral commission rate
+        const settings = await (SystemSettings as any).getSettings();
+        const rebateRatio = settings.referralCommissionRate || 20; // Default 20%
+
+        // Find all users referred by current user
+        const invitees = await User.find({ referredBy: userId }).select('_id uid createdAt email');
+
+        const stats = await Promise.all(invitees.map(async (invitee) => {
+            // Get total transaction amount and fees for this invitee
+            const trades = await Trade.find({ user: invitee._id, status: 'closed' } as any);
+            
+            let transactionAmount = 0;
+            let transactionFee = 0;
+
+            trades.forEach((trade: any) => {
+                transactionAmount += Number(trade.amount) || 0;
+                transactionFee += Number(trade.fee) || 0;
+            });
+
+            // If there are other transactions (like withdrawals with fees), we could add them here
+            // For Biconomy referral, it usually refers to trading fees
+
+            const rebateAmount = (transactionFee * (rebateRatio / 100));
+
+            return {
+                uid: invitee.uid,
+                email: invitee.email,
+                activationDate: invitee.createdAt,
+                transactionAmount,
+                transactionFee,
+                rebateRatio,
+                rebateAmount
+            };
+        }));
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 };

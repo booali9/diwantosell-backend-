@@ -22,6 +22,8 @@ router.post('/reset-password', userController_1.resetPassword);
 router.route('/profile')
     .get(userAuthMiddleware_1.protectUser, userController_1.getUserProfile)
     .put(userAuthMiddleware_1.protectUser, userController_1.updateUserProfile);
+// Referrals
+router.get('/referrals', userAuthMiddleware_1.protectUser, userController_1.getReferralStats);
 // Security
 router.put('/change-password', userAuthMiddleware_1.protectUser, userController_1.changePassword);
 router.put('/change-email', userAuthMiddleware_1.protectUser, userController_1.changeEmail);

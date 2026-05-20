@@ -122,6 +122,11 @@ const userSchema = new mongoose_1.default.Schema({
     clerkId: {
         type: String,
     },
+    notificationPreferences: {
+        trade: { type: Boolean, default: true },
+        system: { type: Boolean, default: true },
+        market: { type: Boolean, default: true }
+    },
 }, {
     timestamps: true,
 });
