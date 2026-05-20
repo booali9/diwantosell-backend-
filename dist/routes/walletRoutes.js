@@ -32,6 +32,9 @@ router.post('/direct-deposit', userAuthMiddleware_1.protectUser, walletControlle
 router.post('/webhook/nowpayments', walletController_1.nowpaymentsWebhook);
 // Simulator (dev/testing only)
 router.post('/deposit-simulator', userAuthMiddleware_1.protectUser, walletController_1.simulateDeposit);
+// Withdrawal fees & OTP verification routes
+router.get('/fee', userAuthMiddleware_1.protectUser, walletController_1.getWithdrawalFee);
+router.post('/withdraw/send-otp', userAuthMiddleware_1.protectUser, walletController_1.sendWithdrawalOTP);
 // Withdrawal request
 router.post('/withdraw', userAuthMiddleware_1.protectUser, walletController_1.withdrawFunds);
 // Transfer funds (simulated)

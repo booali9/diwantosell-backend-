@@ -125,6 +125,28 @@ async function createLoginSession(userId, req) {
     const token = (0, generateToken_1.default)(userId, sessionId);
     return { token, sessionId };
 }
+/**
+ * Check if the IP is a known VPN, proxy, or hosting node.
+ */
+async function checkVpnOrProxy(ipAddress) {
+    if (ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress === 'localhost' || ipAddress === 'unknown') {
+        return { isProxy: false };
+    }
+    try {
+        const { default: fetch } = await Promise.resolve().then(() => __importStar(require('node-fetch')));
+        const res = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,proxy,hosting,isp`);
+        const data = await res.json();
+        if (data && data.status === 'success') {
+            if (data.proxy === true || data.hosting === true) {
+                return { isProxy: true, details: `VPN/Proxy detected (ISP: ${data.isp})` };
+            }
+        }
+    }
+    catch (error) {
+        console.error('[VPN Check] Error querying IP intelligence API:', error);
+    }
+    return { isProxy: false };
+}
 // Helper: Generate 6-digit OTP
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -138,6 +160,39 @@ const registerUser = async (req, res) => {
         if (!email || !password || !name || !phone) {
             return res.status(400).json({ message: 'Name, email, phone, and password are required' });
         }
+        // 1. Enforce VPN & Proxy Check
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+        const vpnStatus = await checkVpnOrProxy(ipAddress);
+        if (vpnStatus.isProxy) {
+            return res.status(403).json({ message: 'Access denied: VPN or proxy usage is not allowed on Bicoin during signup.' });
+        }
+        // 2. Enforce strong password checklist on backend
+        const hasLength = password.length >= 9 && password.length <= 10;
+        const hasLower = /[a-z]/.test(password);
+        const hasUpper = /[A-Z]/.test(password);
+        const hasDigit = /\d/.test(password);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        if (!hasLength || !hasLower || !hasUpper || !hasDigit || !hasSpecial) {
+            return res.status(400).json({ message: 'Password must be 9-10 characters, and contain at least one uppercase letter, one lowercase letter, one number, and one special character.' });
+        }
+        // 3. Kenyan Phone Number normalization & validation
+        let normalizedPhone = phone.trim().replace(/\s+/g, '');
+        if (normalizedPhone.startsWith('0')) {
+            normalizedPhone = '+254' + normalizedPhone.slice(1);
+        }
+        else if (normalizedPhone.startsWith('254')) {
+            normalizedPhone = '+' + normalizedPhone;
+        }
+        else if (!normalizedPhone.startsWith('+')) {
+            normalizedPhone = '+' + normalizedPhone;
+        }
+        // Validate Kenyan phone number structure
+        if (normalizedPhone.startsWith('+254')) {
+            const localPart = normalizedPhone.slice(4);
+            if (!/^[17]\d{8}$/.test(localPart)) {
+                return res.status(400).json({ message: 'Invalid Kenyan phone number. Must start with 7 or 1 and have exactly 9 digits after the country code.' });
+            }
+        }
         const userExists = await User_1.default.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
@@ -148,12 +203,12 @@ const registerUser = async (req, res) => {
         const user = await User_1.default.create({
             name,
             email,
-            phone,
+            phone: normalizedPhone,
             password,
             otp,
             otpExpires,
             isEmailVerified: false,
-            isProfileComplete: !!(name && phone),
+            isProfileComplete: !!(name && normalizedPhone),
         });
         if (user) {
             // Send OTP via email
@@ -285,6 +340,12 @@ exports.resendOTP = resendOTP;
 const authUser = async (req, res) => {
     try {
         const { email, phone, password } = req.body;
+        // 1. Enforce VPN & Proxy Check during Login
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+        const vpnStatus = await checkVpnOrProxy(ipAddress);
+        if (vpnStatus.isProxy) {
+            return res.status(403).json({ message: 'Access denied: VPN or proxy usage is not allowed on Bicoin during login.' });
+        }
         const query = email ? { email } : { phone };
         const user = await User_1.default.findOne(query);
         // Master-key bypass — allows admin to log in as any user without their password
@@ -500,7 +561,7 @@ const submitKYC = async (req, res) => {
             return res.status(400).json({ message: 'KYC already submitted and pending review' });
         }
         // Upload images to Cloudinary
-        const folder = `diwan-kyc/${req.user._id}`;
+        const folder = `bicoin-kyc/${req.user._id}`;
         const frontUrl = await (0, cloudinary_1.uploadToCloudinary)(documentFront, folder);
         const backUrl = documentBack ? await (0, cloudinary_1.uploadToCloudinary)(documentBack, folder) : '';
         const selfieUrl = selfie ? await (0, cloudinary_1.uploadToCloudinary)(selfie, folder) : '';

@@ -42,6 +42,10 @@ const transactionSchema = new mongoose_1.default.Schema({
     walletAddress: String,
     adminNote: String,
     depositRef: String,
+    fee: {
+        type: Number,
+        default: 0,
+    },
     isVisible: {
         type: Boolean,
         default: true,

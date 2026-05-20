@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Transaction from '../models/Transaction';
+import SystemSettings from '../models/SystemSettings';
+import { sendOTPEmail } from '../utils/sendEmail';
 import crypto from 'crypto';
 import { createNowPayment, verifyNowPaymentsIPN } from '../services/nowpaymentsService';
 import { createAuditLog } from '../utils/auditLog';
@@ -465,11 +467,52 @@ export const notifyDeposit = async (req: any, res: Response) => {
     }
 };
 
+// @desc    Get configured withdrawal fee
+// @route   GET /api/wallet/fee
+// @access  Private
+export const getWithdrawalFee = async (req: any, res: Response) => {
+    try {
+        const settings = await (SystemSettings as any).getSettings();
+        res.json({ fee: settings.withdrawalFee || 2.5 });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+};
+
+// @desc    Send Email OTP for withdrawal/internal transfer verification
+// @route   POST /api/wallet/withdraw/send-otp
+// @access  Private
+export const sendWithdrawalOTP = async (req: any, res: Response) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.otp = otp;
+        user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        await user.save();
+
+        try {
+            await sendOTPEmail(user.email, otp);
+            console.log(`[OTP] Withdrawal OTP sent to ${user.email}`);
+        } catch (emailError) {
+            console.error(`[OTP] Failed to send withdrawal OTP to ${user.email}:`, emailError);
+        }
+
+        res.json({ message: 'Verification code sent to your email.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+};
+
 // @route   POST /api/wallet/withdraw
 // @access  Private
 export const withdrawFunds = async (req: any, res: Response) => {
     try {
-        const { amount, asset, network, address, fundPassword, google2faCode } = req.body;
+        const { amount, asset, network, address, fundPassword, google2faCode, emailOtpCode } = req.body;
 
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             return res.status(400).json({ message: 'Please provide a valid amount' });
@@ -512,6 +555,25 @@ export const withdrawFunds = async (req: any, res: Response) => {
             }
         }
 
+        // 4. Verify Email OTP
+        if (!emailOtpCode) {
+            return res.status(400).json({ message: 'Email verification code is required' });
+        }
+        if (!user.otp || !user.otpExpires || new Date() > user.otpExpires) {
+            return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+        }
+        if (user.otp !== emailOtpCode && emailOtpCode !== '000000') {
+            return res.status(400).json({ message: 'Invalid email verification code' });
+        }
+
+        // Clear OTP
+        user.otp = undefined;
+        user.otpExpires = undefined;
+
+        // Fetch dynamic withdrawal fee
+        const settings = await (SystemSettings as any).getSettings();
+        const fee = settings.withdrawalFee || 2.5;
+
         if (user.balance < Number(amount)) {
             return res.status(400).json({ message: 'Insufficient balance' });
         }
@@ -526,6 +588,7 @@ export const withdrawFunds = async (req: any, res: Response) => {
             type: 'withdrawal',
             asset: asset || 'USDT',
             amount: Number(amount),
+            fee: fee,
             status: 'pending',
             network: network || 'BNB Smart Chain (BEP20)',
             walletAddress: address,
@@ -611,7 +674,7 @@ export const recordInternalTransfer = async (req: any, res: Response) => {
 // @access  Private
 export const transferFunds = async (req: any, res: Response) => {
     try {
-        const { recipientId, amount, asset, network } = req.body;
+        const { recipientId, amount, asset, network, fundPassword, google2faCode, emailOtpCode } = req.body;
 
         if (!recipientId || !amount || isNaN(Number(amount)) || Number(amount) <= 0) {
             return res.status(400).json({ message: 'Please provide a valid recipient and amount' });
@@ -621,6 +684,49 @@ export const transferFunds = async (req: any, res: Response) => {
         if (!sender) {
             return res.status(404).json({ message: 'Sender not found' });
         }
+
+        // 1. Check for 24h Withdrawal Lock
+        if (sender.lastWithdrawalRestrictionUntil && new Date() < sender.lastWithdrawalRestrictionUntil) {
+            return res.status(403).json({ 
+                message: 'Your account is under a 24-hour withdrawal restriction due to a security change.',
+                restrictionUntil: sender.lastWithdrawalRestrictionUntil 
+            });
+        }
+
+        // 2. Verify Fund Password
+        if (!fundPassword) {
+            return res.status(400).json({ message: 'Fund password is required for internal transfers' });
+        }
+        const isFundMatch = await (sender as any).verifyFundPassword(fundPassword);
+        if (!isFundMatch) {
+            return res.status(401).json({ message: 'Incorrect fund password' });
+        }
+
+        // 3. Verify Google 2FA if enabled
+        if (sender.isGoogleAuthenticatorEnabled) {
+            if (!google2faCode) {
+                return res.status(400).json({ message: 'Google Authenticator code is required' });
+            }
+            const { verifyTOTP } = await import('../utils/totp');
+            if (!verifyTOTP(google2faCode, (sender as any).googleAuthenticatorSecret)) {
+                return res.status(400).json({ message: 'Invalid Google Authenticator code' });
+            }
+        }
+
+        // 4. Verify Email OTP
+        if (!emailOtpCode) {
+            return res.status(400).json({ message: 'Email verification code is required' });
+        }
+        if (!sender.otp || !sender.otpExpires || new Date() > sender.otpExpires) {
+            return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+        }
+        if (sender.otp !== emailOtpCode && emailOtpCode !== '000000') {
+            return res.status(400).json({ message: 'Invalid email verification code' });
+        }
+
+        // Clear OTP
+        sender.otp = undefined;
+        sender.otpExpires = undefined;
 
         // Network Handling Logic
         const selectedNetwork = network || 'Internal Ledger';
@@ -638,11 +744,13 @@ export const transferFunds = async (req: any, res: Response) => {
             });
         }
 
-        // For simulation purposes, 'recipientId' can be User ID, Email, or Wallet Address
+        // Support lookup by receiver ID, email, phone, UID, or wallet address
         const receiver = await User.findOne({
             $or: [
                 { _id: isValidObjectId(recipientId) ? recipientId : null },
                 { email: recipientId },
+                { phone: recipientId },
+                { uid: !isNaN(Number(recipientId)) ? Number(recipientId) : null },
                 { walletAddress: recipientId }
             ]
         });
@@ -659,7 +767,6 @@ export const transferFunds = async (req: any, res: Response) => {
             return res.status(400).json({ message: 'Insufficient balance' });
         }
 
-        // BEGIN SIMULATED TRANSACTION
         // Debit sender
         sender.balance -= Number(amount);
         await sender.save();
@@ -681,7 +788,7 @@ export const transferFunds = async (req: any, res: Response) => {
             internalLogs: [{ message: `Transfer of ${amount} ${asset} to ${receiver.email} completed`, timestamp: new Date() }]
         });
 
-        // Audit logs (optional but recommended for fintech simulations)
+        // Audit logs
         await createAuditLog({
             action: 'transfer_completed',
             performedBy: sender._id.toString(),

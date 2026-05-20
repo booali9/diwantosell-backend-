@@ -1,5 +1,20 @@
 import express from 'express';
-import { getBalance, getAddress, createDeposit, notifyDeposit, nowpaymentsWebhook, getDepositStatus, simulateDeposit, directDeposit, getTransactions, withdrawFunds, transferFunds, recordInternalTransfer } from '../controllers/walletController';
+import { 
+    getBalance, 
+    getAddress, 
+    createDeposit, 
+    notifyDeposit, 
+    nowpaymentsWebhook, 
+    getDepositStatus, 
+    simulateDeposit, 
+    directDeposit, 
+    getTransactions, 
+    withdrawFunds, 
+    transferFunds, 
+    recordInternalTransfer,
+    getWithdrawalFee,
+    sendWithdrawalOTP
+} from '../controllers/walletController';
 import { protectUser } from '../middleware/userAuthMiddleware';
 import { checkNowPaymentsStatus } from '../services/nowpaymentsService';
 
@@ -34,6 +49,10 @@ router.post('/webhook/nowpayments', nowpaymentsWebhook);
 
 // Simulator (dev/testing only)
 router.post('/deposit-simulator', protectUser, simulateDeposit);
+
+// Withdrawal fees & OTP verification routes
+router.get('/fee', protectUser, getWithdrawalFee);
+router.post('/withdraw/send-otp', protectUser, sendWithdrawalOTP);
 
 // Withdrawal request
 router.post('/withdraw', protectUser, withdrawFunds);
