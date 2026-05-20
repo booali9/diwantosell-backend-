@@ -521,7 +521,21 @@ export const updateUserProfile = async (req: any, res: Response) => {
         const wasProfileComplete = user.isProfileComplete;
 
         user.name = req.body.name || user.name;
-        user.phone = req.body.phone || user.phone;
+        
+        // If phone is updated/changed, normalize and apply 24h lock
+        if (req.body.phone && req.body.phone !== user.phone) {
+            let normalizedPhone = req.body.phone.trim().replace(/\s+/g, '');
+            if (normalizedPhone.startsWith('0')) {
+                normalizedPhone = '+254' + normalizedPhone.slice(1);
+            } else if (normalizedPhone.startsWith('254')) {
+                normalizedPhone = '+' + normalizedPhone;
+            } else if (!normalizedPhone.startsWith('+')) {
+                normalizedPhone = '+' + normalizedPhone;
+            }
+            user.phone = normalizedPhone;
+            (user as any).lastWithdrawalRestrictionUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        }
+
         user.country = req.body.country || user.country;
 
         // Check profile completeness

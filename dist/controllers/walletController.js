@@ -507,6 +507,10 @@ const sendWithdrawalOTP = async (req, res) => {
         }
         catch (emailError) {
             console.error(`[OTP] Failed to send withdrawal OTP to ${user.email}:`, emailError);
+            return res.status(500).json({
+                message: 'Failed to send verification code email. Please check your SMTP settings.',
+                error: emailError.message
+            });
         }
         res.json({ message: 'Verification code sent to your email.' });
     }
